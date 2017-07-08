@@ -1,7 +1,7 @@
 package auctionsniper.end2end;
 
-import ui.MainWindow;
 import auctionsniper.Main;
+import auctionsniper.ui.MainWindow;
 
 public class ApplicationRunner {
     public static final String SNIPER_ID = "sniper";
