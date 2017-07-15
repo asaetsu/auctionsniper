@@ -1,5 +1,7 @@
 package auctionsniper;
 
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.net.InetAddress;
 
@@ -31,8 +33,10 @@ public class Main {
     public static final String ITEM_ID_AS_LOGIN = "auction-%s";
     public static final String AUCTION_ID_FORMAT = ITEM_ID_AS_LOGIN + "@%s/"
             + AUCTION_RESOURCE;
+    public static final String JOIN_COMMAND_FORMAT = "SOLVersion: 1.1; Command: JOIN;";
+    public static final String BID_COMMAND_FORMAT = "SOLVersion: 1.1; Command: BID; Price: %d;";
 
-    private MainWindow ui;
+    private volatile MainWindow ui;
     @SuppressWarnings("unused")
     private Chat notToBeGCd;
 
@@ -42,24 +46,16 @@ public class Main {
 
     public static void main(String... args) throws Exception {
         Main main = new Main();
-
         AbstractXMPPConnection connection = connectTo(args[ARG_HOST_NAME],
                 Integer.parseInt(args[ARG_PORT]), args[ARG_XMPP_DOMAIN_NAME],
                 args[ARG_USERNAME], args[ARG_PASSWORD]);
-
-        ChatManager manager = ChatManager.getInstanceFor(connection);
-        EntityBareJid auctionJid = auctionJid(args[ARG_ITEM_ID],
-                args[ARG_XMPP_DOMAIN_NAME]);
-        Chat chat = manager.chatWith(auctionJid);
-        chat.send("");
+        main.joinAuction(connection,
+                auctionJid(args[ARG_ITEM_ID], args[ARG_XMPP_DOMAIN_NAME]));
     }
 
     private void startUserInterface() throws Exception {
-        SwingUtilities.invokeAndWait(new Runnable() {
-            @Override
-            public void run() {
-                ui = new MainWindow();
-            }
+        SwingUtilities.invokeAndWait(() -> {
+            this.ui = new MainWindow();
         });
     }
 
@@ -89,14 +85,26 @@ public class Main {
     private void joinAuction(AbstractXMPPConnection connection,
             EntityBareJid auctionJid)
             throws SmackException.NotConnectedException, InterruptedException {
+        disconnectWhenUICloses(connection);
+
         ChatManager manager = ChatManager.getInstanceFor(connection);
         Chat chat = manager.chatWith(auctionJid);
         notToBeGCd = chat;
+
         manager.addIncomingListener((EntityBareJid _entityBareJid,
                 Message _message, Chat _chat) -> {
             SwingUtilities.invokeLater(() -> ui
                     .showStatus(MainWindow.STATUS_LOST));
         });
-        chat.send("");
+        chat.send(JOIN_COMMAND_FORMAT);
+    }
+
+    private void disconnectWhenUICloses(AbstractXMPPConnection connection) {
+        ui.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                connection.disconnect();
+            }
+        });
     }
 }
