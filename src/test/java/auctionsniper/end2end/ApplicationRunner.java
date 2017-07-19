@@ -30,7 +30,7 @@ public class ApplicationRunner {
         driver.showsSniperStatus(MainWindow.STATUS_JOINING);
     }
 
-    public void showsSniperIsBidding() {
+    public void hasShownSniperIsBidding() {
         driver.showsSniperStatus(MainWindow.STATUS_BIDDING);
     }
 
