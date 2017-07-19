@@ -16,7 +16,7 @@ public class AuctionMessageTranslator implements IncomingChatMessageListener {
     @Override
     public void newIncomingMessage(EntityBareJid entityBareJid,
             Message message, Chat chat) {
-        // TODO Auto-generated method stub
+        listener.auctionClosed();
 
     }
 
