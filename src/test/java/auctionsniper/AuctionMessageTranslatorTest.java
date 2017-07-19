@@ -12,6 +12,12 @@ public class AuctionMessageTranslatorTest {
 
     public static final Chat UNUSED_CHAT = null;
     public static final EntityBareJid UNUSED_JID = null;
+    @Rule
+    public JUnitRuleMockery context = new JUnitRuleMockery();
+    private final AuctionEventListener listener = context
+            .mock(AuctionEventListener.class);
+    private final AuctionMessageTranslator translator = new AuctionMessageTranslator(
+            listener);
 
     @Test
     public void notifiesAuctionClosedWhenCloseMessageReceived() {
@@ -26,11 +32,21 @@ public class AuctionMessageTranslatorTest {
         translator.newIncomingMessage(UNUSED_JID, message, UNUSED_CHAT);
     }
 
-    @Rule
-    public JUnitRuleMockery context = new JUnitRuleMockery();
-    private final AuctionEventListener listener = context
-            .mock(AuctionEventListener.class);
-    private final AuctionMessageTranslator translator = new AuctionMessageTranslator(
-            listener);
+    @Test
+    public void notifiesBidDetailsWhenCurrentPriceMessageReceived() {
+        int price = 197;
+        int increment = 7;
+        context.checking(new Expectations() {
+            {
+                oneOf(listener).currentPrice(price, increment);
+            }
+        });
+        Message message = new Message();
+        message.setBody(String
+                .format("SOLVersion: 1.1; Event: PRICE; CurrentPrice: %d; Increment: %d; Bidder: Someoene else;",
+                        price, increment));
+
+        translator.newIncomingMessage(UNUSED_JID, message, UNUSED_CHAT);
+    }
 
 }
