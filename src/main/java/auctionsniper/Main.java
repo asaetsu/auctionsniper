@@ -22,7 +22,7 @@ import org.jxmpp.stringprep.XmppStringprepException;
 
 import auctionsniper.ui.MainWindow;
 
-public class Main implements AuctionEventListener {
+public class Main implements SniperListener {
     private static final int ARG_HOST_NAME = 0;
     private static final int ARG_PORT = 1;
     private static final int ARG_XMPP_DOMAIN_NAME = 2;
@@ -96,7 +96,8 @@ public class Main implements AuctionEventListener {
             SwingUtilities.invokeLater(() -> ui
                     .showStatus(MainWindow.STATUS_LOST));
         });
-        manager.addIncomingListener(new AuctionMessageTranslator(this));
+        manager.addIncomingListener(new AuctionMessageTranslator(
+                new AuctionSniper(this)));
         chat.send(JOIN_COMMAND_FORMAT);
     }
 
@@ -110,12 +111,7 @@ public class Main implements AuctionEventListener {
     }
 
     @Override
-    public void auctionClosed() {
-        SwingUtilities.invokeLater(() -> ui.showStatus(MainWindow.STATUS_LOST));
-    }
-
-    @Override
-    public void currentPrice(int price, int increment) {
+    public void sniperLost() {
         // TODO Auto-generated method stub
 
     }
