@@ -85,11 +85,22 @@ public class Main implements SniperListener {
     private void joinAuction(AbstractXMPPConnection connection,
             EntityBareJid auctionJid)
             throws SmackException.NotConnectedException, InterruptedException {
+
         disconnectWhenUICloses(connection);
 
         ChatManager manager = ChatManager.getInstanceFor(connection);
         Chat chat = manager.chatWith(auctionJid);
         notToBeGCd = chat;
+
+        Auction auction = amount -> {
+            try {
+                chat.send(String.format(BID_COMMAND_FORMAT, amount));
+            } catch (SmackException.NotConnectedException e) {
+                e.printStackTrace();// TODO
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        };
 
         manager.addIncomingListener((EntityBareJid _entityBareJid,
                 Message _message, Chat _chat) -> {
@@ -97,7 +108,7 @@ public class Main implements SniperListener {
                     .showStatus(MainWindow.STATUS_LOST));
         });
         manager.addIncomingListener(new AuctionMessageTranslator(
-                new AuctionSniper(this)));
+                new AuctionSniper(auction, this)));
         chat.send(JOIN_COMMAND_FORMAT);
     }
 
@@ -112,7 +123,12 @@ public class Main implements SniperListener {
 
     @Override
     public void sniperLost() {
-        // TODO Auto-generated method stub
+        SwingUtilities.invokeLater(() -> ui.showStatus(MainWindow.STATUS_LOST));
+    }
 
+    @Override
+    public void sniperBidding() {
+        SwingUtilities.invokeLater(() -> ui
+                .showStatus(MainWindow.STATUS_BIDDING));
     }
 }
