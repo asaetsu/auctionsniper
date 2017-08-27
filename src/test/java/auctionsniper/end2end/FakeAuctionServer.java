@@ -99,6 +99,8 @@ public class FakeAuctionServer {
 
         ChatPartner partner = incomingListener.getChatPartner().get();
 
+        // `IncomingChatMessageListener`では`EntityFullJid`を引数に取らない(`EntityBareJid`を取る)ので、`Resource
+        // Name`を付加して比較する。
         assertThat(partner.jid.asEntityBareJidString() + "/"
                 + Main.AUCTION_RESOURCE, is(sniperId));
     }
@@ -140,10 +142,11 @@ public class FakeAuctionServer {
         @Override
         public void newIncomingMessage(EntityBareJid entityBareJid,
                 Message message, Chat chat) {
-            messages.add(message);
             synchronized (chatPartners) {
                 chatPartners.add(new ChatPartner(entityBareJid, chat));
             }
+            messages.add(message);
+
         }
 
         public Optional<ChatPartner> getChatPartner() {

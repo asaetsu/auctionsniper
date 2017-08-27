@@ -13,7 +13,6 @@ import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.chat2.Chat;
 import org.jivesoftware.smack.chat2.ChatManager;
-import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 import org.jxmpp.jid.EntityBareJid;
@@ -22,7 +21,7 @@ import org.jxmpp.stringprep.XmppStringprepException;
 
 import auctionsniper.ui.MainWindow;
 
-public class Main implements SniperListener {
+public class Main {
     private static final int ARG_HOST_NAME = 0;
     private static final int ARG_PORT = 1;
     private static final int ARG_XMPP_DOMAIN_NAME = 2;
@@ -83,33 +82,19 @@ public class Main implements SniperListener {
     }
 
     private void joinAuction(AbstractXMPPConnection connection,
-            EntityBareJid auctionJid)
-            throws SmackException.NotConnectedException, InterruptedException {
-
+            EntityBareJid auctionJid) {
         disconnectWhenUICloses(connection);
 
         ChatManager manager = ChatManager.getInstanceFor(connection);
         Chat chat = manager.chatWith(auctionJid);
         notToBeGCd = chat;
 
-        Auction auction = amount -> {
-            try {
-                chat.send(String.format(BID_COMMAND_FORMAT, amount));
-            } catch (SmackException.NotConnectedException e) {
-                e.printStackTrace();// TODO
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        };
-
-        manager.addIncomingListener((EntityBareJid _entityBareJid,
-                Message _message, Chat _chat) -> {
-            SwingUtilities.invokeLater(() -> ui
-                    .showStatus(MainWindow.STATUS_LOST));
-        });
-        manager.addIncomingListener(new AuctionMessageTranslator(
-                new AuctionSniper(auction, this)));
-        chat.send(JOIN_COMMAND_FORMAT);
+        Auction auction = new XMPPAuction(chat);
+        // `AbstractXMPPConnection.connection` は `EntityFullJid` を返す。
+        manager.addIncomingListener(new AuctionMessageTranslator(connection
+                .getUser().toString(), new AuctionSniper("itemId", auction,
+                new SniperStateDisplayer())));
+        auction.join();
     }
 
     private void disconnectWhenUICloses(AbstractXMPPConnection connection) {
@@ -121,14 +106,63 @@ public class Main implements SniperListener {
         });
     }
 
-    @Override
-    public void sniperLost() {
-        SwingUtilities.invokeLater(() -> ui.showStatus(MainWindow.STATUS_LOST));
+    public static class XMPPAuction implements Auction {
+        private Chat chat;
+
+        public XMPPAuction(Chat chat) {
+            this.chat = chat;
+        }
+
+        @Override
+        public void bid(int amount) {
+            sendMessage(String.format(BID_COMMAND_FORMAT, amount));
+        }
+
+        @Override
+        public void join() {
+            sendMessage(JOIN_COMMAND_FORMAT);
+        }
+
+        private void sendMessage(String message) {
+            try {
+                chat.send(message);
+            } catch (SmackException.NotConnectedException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
-    @Override
-    public void sniperBidding() {
-        SwingUtilities.invokeLater(() -> ui
-                .showStatus(MainWindow.STATUS_BIDDING));
+    public class SniperStateDisplayer implements SniperListener {
+        @Override
+        public void sniperLost() {
+            showStatus(MainWindow.STATUS_LOST);
+        }
+
+        @Override
+        public void sniperBidding(final SniperState state) {
+            SwingUtilities.invokeLater(new Runnable() {
+                public @Override void run() {
+                    // ui.sniperStatusChanged(state, MainWindow.STATUS_BIDDING)
+                }
+            });
+            // showStatus(MainWindow.STATUS_BIDDING);
+        }
+
+        @Override
+        public void sniperWinning() {
+            showStatus(MainWindow.STATUS_WINNING);
+        }
+
+        @Override
+        public void sniperWon() {
+            showStatus(MainWindow.STATUS_WON);
+        }
+
+        private void showStatus(String status) {
+            SwingUtilities.invokeLater(() -> ui.showStatus(status));
+        }
+
     }
 }
