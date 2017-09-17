@@ -35,26 +35,29 @@ public class Main {
     public static final String JOIN_COMMAND_FORMAT = "SOLVersion: 1.1; Command: JOIN;";
     public static final String BID_COMMAND_FORMAT = "SOLVersion: 1.1; Command: BID; Price: %d;";
 
+    private final SnipersTableModel snipers;
     private volatile MainWindow ui;
     @SuppressWarnings("unused")
     private Chat notToBeGCd;
 
-    public Main() throws Exception {
-        startUserInterface();
+    public Main(String itemId) throws Exception {
+        snipers = new SnipersTableModel(SniperSnapshot.joining(itemId));
+        startUserInterface(snipers);
     }
 
     public static void main(String... args) throws Exception {
-        Main main = new Main();
+        Main main = new Main(args[ARG_ITEM_ID]);
         AbstractXMPPConnection connection = connectTo(args[ARG_HOST_NAME],
                 Integer.parseInt(args[ARG_PORT]), args[ARG_XMPP_DOMAIN_NAME],
                 args[ARG_USERNAME], args[ARG_PASSWORD]);
         main.joinAuction(connection,
-                auctionJid(args[ARG_ITEM_ID], args[ARG_XMPP_DOMAIN_NAME]));
+                auctionJid(args[ARG_ITEM_ID], args[ARG_XMPP_DOMAIN_NAME]),
+                args[ARG_ITEM_ID]);
     }
 
-    private void startUserInterface() throws Exception {
+    private void startUserInterface(SnipersTableModel snipers) throws Exception {
         SwingUtilities.invokeAndWait(() -> {
-            this.ui = new MainWindow();
+            this.ui = new MainWindow(snipers);
         });
     }
 
@@ -82,7 +85,7 @@ public class Main {
     }
 
     private void joinAuction(AbstractXMPPConnection connection,
-            EntityBareJid auctionJid) {
+            EntityBareJid auctionJid, String itemId) {
         disconnectWhenUICloses(connection);
 
         ChatManager manager = ChatManager.getInstanceFor(connection);
@@ -90,10 +93,14 @@ public class Main {
         notToBeGCd = chat;
 
         Auction auction = new XMPPAuction(chat);
-        // `AbstractXMPPConnection.connection` は `EntityFullJid` を返す。
+
+        // TODO `AuctionSniper` 内の `SniperSnapshot` と、`SnipersTableModel`
+        // 内のそれが重複している。
         manager.addIncomingListener(new AuctionMessageTranslator(connection
-                .getUser().toString(), new AuctionSniper("itemId", auction,
-                new SniperStateDisplayer())));
+                .getUser().toString(), // `AbstractXMPPConnection.connection` は
+                                       // `EntityFullJid` を返す。
+                new AuctionSniper(itemId, auction,
+                        new SwingThreadSniperListener(snipers))));
         auction.join();
     }
 
@@ -132,37 +139,5 @@ public class Main {
                 e.printStackTrace();
             }
         }
-    }
-
-    public class SniperStateDisplayer implements SniperListener {
-        @Override
-        public void sniperLost() {
-            showStatus(MainWindow.STATUS_LOST);
-        }
-
-        @Override
-        public void sniperBidding(final SniperState state) {
-            SwingUtilities.invokeLater(new Runnable() {
-                public @Override void run() {
-                    // ui.sniperStatusChanged(state, MainWindow.STATUS_BIDDING)
-                }
-            });
-            // showStatus(MainWindow.STATUS_BIDDING);
-        }
-
-        @Override
-        public void sniperWinning() {
-            showStatus(MainWindow.STATUS_WINNING);
-        }
-
-        @Override
-        public void sniperWon() {
-            showStatus(MainWindow.STATUS_WON);
-        }
-
-        private void showStatus(String status) {
-            SwingUtilities.invokeLater(() -> ui.showStatus(status));
-        }
-
     }
 }

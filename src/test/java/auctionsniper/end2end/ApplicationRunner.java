@@ -1,6 +1,8 @@
 package auctionsniper.end2end;
 
 import auctionsniper.Main;
+import auctionsniper.SniperState;
+import auctionsniper.SnipersTableModel;
 import auctionsniper.ui.MainWindow;
 
 public class ApplicationRunner {
@@ -12,7 +14,6 @@ public class ApplicationRunner {
     private String itemId;
 
     public void startBiddingIn(FakeAuctionServer auction) {
-        itemId = auction.getItemId();
         Thread thread = new Thread("Test Application") {
             @Override
             public void run() {
@@ -29,27 +30,31 @@ public class ApplicationRunner {
         thread.setDaemon(true);
         thread.start();
         driver = new AuctionSniperDriver(1000);
-        driver.showsSniperStatus(itemId, 0, 0, MainWindow.STATUS_JOINING);
+        itemId = auction.getItemId();
+        driver.hasTitle(MainWindow.APPLICATION_TITLE);
+        driver.hasColumnTitles();
+        driver.showsSniperStatus(itemId, 0, 0,
+                SnipersTableModel.textFor(SniperState.JOINING));
     }
 
-    public void hasShownSniperIsBidding(int lastPrice, int lastBid) {
+    public void hasShownSniperIsBidding(int lastPlace, int lastBid) {
+        driver.showsSniperStatus(itemId, lastPlace, lastBid,
+                SnipersTableModel.textFor(SniperState.BIDDING));
+    }
+
+    public void hasShownSniperHasLostAuction(int lastPrice, int lastBid) {
         driver.showsSniperStatus(itemId, lastPrice, lastBid,
-                MainWindow.STATUS_BIDDING);
-    }
-
-    public void hasShownSniperHasLostAuction(int lastPrice) {
-        driver.showsSniperStatus(itemId, lastPrice, lastPrice,
-                MainWindow.STATUS_LOST);
+                SnipersTableModel.textFor(SniperState.LOST));
     }
 
     public void hasShownSniperIsWinning(int winningBid) {
         driver.showsSniperStatus(itemId, winningBid, winningBid,
-                MainWindow.STATUS_WINNING);
+                SnipersTableModel.textFor(SniperState.WINNING));
     }
 
     public void hasShownSniperHasWonAuction(int lastPrice) {
         driver.showsSniperStatus(itemId, lastPrice, lastPrice,
-                MainWindow.STATUS_WON);
+                SnipersTableModel.textFor(SniperState.WON));
     }
 
     public void stop() {

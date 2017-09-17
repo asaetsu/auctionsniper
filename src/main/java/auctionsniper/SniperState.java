@@ -1,14 +1,29 @@
 package auctionsniper;
 
-public class SniperState {
+import auctionsniper.util.Defect;
 
-    public final String itemId;
-    public final int lastPrice;
-    public final int lastBid;
+public enum SniperState {
+    JOINING {
+        @Override
+        public SniperState whenAuctionClosed() {
+            return LOST;
+        }
+    },
+    BIDDING {
+        @Override
+        public SniperState whenAuctionClosed() {
+            return LOST;
+        }
+    },
+    WINNING {
+        @Override
+        public SniperState whenAuctionClosed() {
+            return WON;
+        }
+    },
+    LOST, WON;
 
-    public SniperState(String itemId, int lastPrice, int lastBid) {
-        this.itemId = itemId;
-        this.lastPrice = lastPrice;
-        this.lastBid = lastBid;
+    public SniperState whenAuctionClosed() {
+        throw new Defect("Auction is already closed");
     }
 }

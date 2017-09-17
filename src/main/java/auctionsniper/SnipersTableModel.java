@@ -2,13 +2,17 @@ package auctionsniper;
 
 import javax.swing.table.AbstractTableModel;
 
-import auctionsniper.ui.MainWindow;
+import auctionsniper.ui.Column;
 
-public class SnipersTableModel extends AbstractTableModel {
+public class SnipersTableModel extends AbstractTableModel implements
+        SniperListener {
+    private SniperSnapshot snapshot;
+    private static String[] STATUS_TEXT = { "Joining", "Bidding", "Winning",
+            "Lost", "Won" };
 
-    private final static SniperState STARTING_UP = new SniperState("", 0, 0);
-    private String statusText = MainWindow.STATUS_JOINING;
-    private SniperState sniperState = STARTING_UP;
+    public SnipersTableModel(SniperSnapshot snapshot) {
+        this.snapshot = snapshot;
+    }
 
     @Override
     public int getColumnCount() {
@@ -22,37 +26,21 @@ public class SnipersTableModel extends AbstractTableModel {
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
-        switch (Column.at(columnIndex)) {
-        case ITEM_IDENTIFIER:
-            return sniperState.itemId;
-        case LAST_PRICE:
-            return sniperState.lastPrice;
-        case LAST_BID:
-            return sniperState.lastBid;
-        case SNIPER_STATUS:
-            return statusText;
-        default:
-            throw new IllegalArgumentException("No column at " + columnIndex);
-        }
+        return Column.at(columnIndex).valueIn(snapshot);
     }
 
-    public void setStatusText(String newStatusText) {
-        statusText = newStatusText;
+    @Override
+    public String getColumnName(int column) {
+        return Column.at(column).name;
+    }
+
+    public static String textFor(SniperState state) {
+        return STATUS_TEXT[state.ordinal()];
+    }
+
+    @Override
+    public void sniperStateChanged(SniperSnapshot snapshot) {
+        this.snapshot = snapshot;
         fireTableRowsUpdated(0, 0);
-    }
-
-    public void sniperStatusChanged(SniperState newSniperState,
-            String newStatusText) {
-        sniperState = newSniperState;
-        statusText = newStatusText;
-        fireTableRowsUpdated(0, 0);
-    }
-
-    public enum Column {
-        ITEM_IDENTIFIER, LAST_PRICE, LAST_BID, SNIPER_STATUS;
-
-        public static Column at(int offset) {
-            return values()[offset];
-        }
     }
 }
