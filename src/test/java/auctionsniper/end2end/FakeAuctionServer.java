@@ -1,13 +1,11 @@
 package auctionsniper.end2end;
 
-import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -82,7 +80,7 @@ public class FakeAuctionServer {
         });
     }
 
-    public void hasReceivedJoinRequestFromSniper(String sniperId)
+    public void hasReceivedJoinRequestFrom(String sniperId)
             throws InterruptedException {
         receivesAMessageMatching(sniperId, is(Main.JOIN_COMMAND_FORMAT));
     }
@@ -100,9 +98,9 @@ public class FakeAuctionServer {
         ChatPartner partner = incomingListener.getChatPartner().get();
 
         // `IncomingChatMessageListener`では`EntityFullJid`を引数に取らない(`EntityBareJid`を取る)ので、`Resource
-        // Name`を付加して比較する。
-        assertThat(partner.jid.asEntityBareJidString() + "/"
-                + Main.AUCTION_RESOURCE, is(sniperId));
+        // Name`(itemId)を付加して比較する。
+        assertThat(partner.jid.asEntityBareJidString() + "/" + itemId,
+                is(sniperId));
     }
 
     public String getItemId() {
@@ -130,28 +128,28 @@ public class FakeAuctionServer {
 
         private ArrayBlockingQueue<Message> messages = new ArrayBlockingQueue<>(
                 1);
-        private List<ChatPartner> chatPartners = new ArrayList<>();
+        private ChatPartner chatPartner;
+        private byte[] lock = new byte[0];
 
         public void receiveAMessage(Matcher<? super String> messageMatcher)
                 throws InterruptedException {
             Message message = messages.poll(5, TimeUnit.SECONDS);
             assertThat("Message", message, is(notNullValue()));
-            assertThat(message.getBody(), messageMatcher);
+            assertThat(message, hasProperty("body", messageMatcher));
         }
 
         @Override
         public void newIncomingMessage(EntityBareJid entityBareJid,
                 Message message, Chat chat) {
-            synchronized (chatPartners) {
-                chatPartners.add(new ChatPartner(entityBareJid, chat));
+            synchronized (lock) {
+                chatPartner = new ChatPartner(entityBareJid, chat);
             }
             messages.add(message);
-
         }
 
         public Optional<ChatPartner> getChatPartner() {
-            synchronized (chatPartners) {
-                return chatPartners.stream().findFirst();
+            synchronized (lock) {
+                return Optional.ofNullable(chatPartner);
             }
         }
     }
