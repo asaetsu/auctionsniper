@@ -35,30 +35,41 @@ public class Main {
             + AUCTION_RESOURCE;
     public static final String JOIN_COMMAND_FORMAT = "SOLVersion: 1.1; Command: JOIN;";
     public static final String BID_COMMAND_FORMAT = "SOLVersion: 1.1; Command: BID; Price: %d;";
-    private List<Chat> notToBeGCd = new ArrayList<>();
-    private volatile MainWindow ui;
-    private final SnipersTableModel snipers = new SnipersTableModel();
 
+    private final ConnectionConfig config;
+    private final SnipersTableModel snipers = new SnipersTableModel();
+    private volatile MainWindow ui;
     @SuppressWarnings("unused")
-    public Main() throws Exception {
+    private List<Chat> notToBeGCd = new ArrayList<>();
+
+    public Main(ConnectionConfig config) throws Exception {
+        this.config = config;
         startUserInterface(snipers);
+        addUserRequestListenerFor();
+    }
+
+    static class ConnectionConfig {
+        public final String hostName;
+        public final int port;
+        public final String xmppDomainName;
+        public final String userName;
+        public final String password;
+
+        public ConnectionConfig(String hostName, int port,
+                String xmppDomainName, String userName, String password) {
+            this.hostName = hostName;
+            this.port = port;
+            this.xmppDomainName = xmppDomainName;
+            this.userName = userName;
+            this.password = password;
+        }
     }
 
     public static void main(String... args) throws Exception {
-        int itemIdStartIndex = 5;
-        Main main = new Main();
-        List<AbstractXMPPConnection> connections = new ArrayList<>();
-        // コネクションをわける
-        for (int i = itemIdStartIndex; i < args.length; i++) {
-            AbstractXMPPConnection connection = connectTo(args[ARG_HOST_NAME],
-                    Integer.parseInt(args[ARG_PORT]),
-                    args[ARG_XMPP_DOMAIN_NAME], args[ARG_USERNAME],
-                    args[ARG_PASSWORD], args[i]);
-            connections.add(connection);
-            // main.joinAuction(connection,
-            // auctionJid(args[i], args[ARG_XMPP_DOMAIN_NAME]), args[i]);
-        }
-        connections.forEach((c) -> main.disconnectWhenUICloses(c));
+        ConnectionConfig config = new ConnectionConfig(args[ARG_HOST_NAME],
+                Integer.parseInt(args[ARG_PORT]), args[ARG_XMPP_DOMAIN_NAME],
+                args[ARG_USERNAME], args[ARG_PASSWORD]);
+        new Main(config);
     }
 
     private void startUserInterface(SnipersTableModel snipers) throws Exception {
@@ -67,15 +78,54 @@ public class Main {
         });
     }
 
+    private void addUserRequestListenerFor() {
+        ui.addUserRequestListener(itemId -> {
+            try {
+                // 本の `Smack` : `Chat`毎にリスナーを設定
+                // 4.2.0 : `ChatManager`に対してリスナーを設定。`Chat`毎に対してリスナーを設定出来ない。
+                // と、APIが異なり、挙動も異なる。
+                // 本通りに、`Chat`毎に管理したいので、以下の様にアイテム追加毎にコネクションと`Chat`を生成する。
+                // - コネクション生成時にリソース名(アイテムID)を付加する(オークションからのメッセージの送信先を分ける)。
+                // -
+                // それぞれのコネクションから生成される`ChatManager`に対して`IncomingChatMessageListener`を設定する。
+                AbstractXMPPConnection connection = connectTo(config.hostName,
+                        config.port, config.xmppDomainName, config.userName,
+                        config.password, itemId);
+                disconnectWhenUICloses(connection);
+
+                ChatManager manager = ChatManager.getInstanceFor(connection);
+                Chat chat = manager.chatWith(auctionJid(itemId, connection
+                        .getXMPPServiceDomain().toString()));
+                notToBeGCd.add(chat);
+
+                Auction auction = new XMPPAuction(chat);
+
+                // TODO `AuctionSniper` 内の `SniperSnapshot`
+                // と、`SnipersTableModel` 内のそれが重複している。
+                manager.addIncomingListener(new AuctionMessageTranslator(
+                        connection.getUser().toString(), // `AbstractXMPPConnection.connection`
+                                                         // は `EntityFullJid`
+                                                         // を返す。
+                        new AuctionSniper(itemId, auction,
+                                new SwingThreadSniperListener(snipers))));
+                auction.join();
+
+                snipers.addSniper(SniperSnapshot.joining(itemId));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
     private static AbstractXMPPConnection connectTo(String hostName, int port,
-            String xmpppDomainName, String username, String password,
+            String xmppDomainName, String username, String password,
             String resource) throws IOException, InterruptedException,
             SmackException, XMPPException {
         XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration
                 .builder()
                 .setSecurityMode(ConnectionConfiguration.SecurityMode.disabled)
                 .setHostAddress(InetAddress.getByName(hostName)).setPort(port)
-                .setXmppDomain(xmpppDomainName)
+                .setXmppDomain(xmppDomainName)
                 .setUsernameAndPassword(username, password)
                 .setResource(resource).build();
         AbstractXMPPConnection connection = new XMPPTCPConnection(config);
@@ -88,31 +138,6 @@ public class Main {
             throws XmppStringprepException {
         return JidCreate.entityBareFrom(String.format(AUCTION_ID_FORMAT,
                 itemId, xmppDomainName));
-    }
-
-    private void joinAuction(AbstractXMPPConnection connection,
-            EntityBareJid auctionJid, String itemId) throws Exception {
-        safelyAddItemToModel(itemId);
-
-        ChatManager manager = ChatManager.getInstanceFor(connection);
-        Chat chat = manager.chatWith(auctionJid);
-        notToBeGCd.add(chat);
-
-        Auction auction = new XMPPAuction(chat);
-
-        // TODO `AuctionSniper` 内の `SniperSnapshot` と、`SnipersTableModel`
-        // 内のそれが重複している。
-        manager.addIncomingListener(new AuctionMessageTranslator(connection
-                .getUser().toString(), // `AbstractXMPPConnection.connection` は
-                                       // `EntityFullJid` を返す。
-                new AuctionSniper(itemId, auction,
-                        new SwingThreadSniperListener(snipers))));
-        auction.join();
-    }
-
-    private void safelyAddItemToModel(String itemId) throws Exception {
-        SwingUtilities.invokeAndWait(() -> snipers.addSniper(SniperSnapshot
-                .joining(itemId)));
     }
 
     private void disconnectWhenUICloses(AbstractXMPPConnection connection) {

@@ -5,6 +5,8 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import auctionsniper.WindowLickerWorkaround;
+
 public class End2EndTest {
     FakeAuctionServer auction;
     FakeAuctionServer auction2;
@@ -18,12 +20,7 @@ public class End2EndTest {
 
     @BeforeClass
     public static void workaround4WindowLicker() {
-        // WARNING: could not load keyboard layout Mac-JP, using fallback layout
-        // with reduced capabilities
-        // 上記警告と、P192のアクションバーへのアイテムIDの置換でエラーとなりテストが実行出来ない事へのとりあえずの回避策。
-        // 参考 :
-        // https://stackoverflow.com/questions/23316432/windowlicker-is-not-working-on-os-x
-        System.setProperty("com.objogate.wl.keyboard", "Mac-GB");
+        WindowLickerWorkaround.fix();
     }
 
     @Before
@@ -97,6 +94,9 @@ public class End2EndTest {
         auction.startSellingItem();
         auction2.startSellingItem();
 
+        // テーブルに行が追加されていないので、`ApplicationRunner.startBiddingIn`内のチェック(`AuctionSniperDriver.showsSniperStatus`)で失敗する。
+        // 結果、`SingleIncomingListener.receiveAMessage`は呼ばれない。
+        // チェックをコメントアウトすると本通りのエラーメッセージが表示される。
         runner.startBiddingIn(auction, auction2);
         auction.hasReceivedJoinRequestFrom(SNIPER_XMPP_ID);
         auction2.hasReceivedJoinRequestFrom(SNIPER_XMPP_ID2);

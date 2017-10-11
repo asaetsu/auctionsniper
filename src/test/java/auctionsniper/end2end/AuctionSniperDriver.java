@@ -24,6 +24,11 @@ public class AuctionSniperDriver extends JFrameDriver {
                 new AWTEventQueueProber(timeoutMillis, 100));
     }
 
+    public void startBiddingFor(String itemId) {
+        itemIdField().replaceAllText(itemId);
+        bidButton().click();
+    }
+
     public void showsSniperStatus(String itemId, int lastPrice, int lastBid,
             String statusText) {
         JTableDriver table = new JTableDriver(this);
@@ -39,11 +44,6 @@ public class AuctionSniperDriver extends JFrameDriver {
         headers.hasHeaders(matching(withLabelText("Item"),
                 withLabelText("Last Price"), withLabelText("Last Bid"),
                 withLabelText("State")));
-    }
-
-    public void startBiddingFor(String itemId) {
-        itemIdField().replaceAllText(itemId);
-        bidButton().click();
     }
 
     private JTextFieldDriver itemIdField() {
