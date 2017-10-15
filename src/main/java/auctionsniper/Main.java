@@ -22,6 +22,7 @@ import org.jxmpp.jid.impl.JidCreate;
 import org.jxmpp.stringprep.XmppStringprepException;
 
 import auctionsniper.ui.MainWindow;
+import auctionsniper.xmpp.AuctionMessageTranslator;
 
 public class Main {
     private static final int ARG_HOST_NAME = 0;

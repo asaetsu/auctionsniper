@@ -1,4 +1,4 @@
-package auctionsniper;
+package auctionsniper.xmpp;
 
 import org.jivesoftware.smack.chat2.Chat;
 import org.jivesoftware.smack.packet.Message;
@@ -7,6 +7,8 @@ import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jxmpp.jid.EntityBareJid;
+
+import auctionsniper.AuctionEventListener;
 
 public class AuctionMessageTranslatorTest {
     @Rule
