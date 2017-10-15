@@ -24,7 +24,7 @@ import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
 import org.jxmpp.jid.EntityBareJid;
 import org.jxmpp.stringprep.XmppStringprepException;
 
-import auctionsniper.Main;
+import auctionsniper.xmpp.XMPPAuction;
 
 public class FakeAuctionServer {
     public static final String ITEM_ID_AS_LOGIN = "auction-%s";
@@ -82,13 +82,13 @@ public class FakeAuctionServer {
 
     public void hasReceivedJoinRequestFrom(String sniperId)
             throws InterruptedException {
-        receivesAMessageMatching(sniperId, is(Main.JOIN_COMMAND_FORMAT));
+        receivesAMessageMatching(sniperId, is(XMPPAuction.JOIN_COMMAND_FORMAT));
     }
 
     public void hasReceivedBid(int bid, String sniperId)
             throws InterruptedException {
         receivesAMessageMatching(sniperId,
-                is(String.format(Main.BID_COMMAND_FORMAT, bid)));
+                is(String.format(XMPPAuction.BID_COMMAND_FORMAT, bid)));
     }
 
     private void receivesAMessageMatching(String sniperId,
