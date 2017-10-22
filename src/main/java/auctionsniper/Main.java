@@ -7,10 +7,8 @@ import java.util.List;
 
 import javax.swing.SwingUtilities;
 
-import org.jivesoftware.smack.AbstractXMPPConnection;
-
 import auctionsniper.ui.MainWindow;
-import auctionsniper.xmpp.XMPPAuction;
+import auctionsniper.xmpp.XMPPAuctionHouse;
 
 public class Main {
     private static final int ARG_HOST_NAME = 0;
@@ -71,11 +69,11 @@ public class Main {
                 // - コネクション生成時にリソース名(アイテムID)を付加する(オークションからのメッセージの送信先を分ける)。
                 // -
                 // それぞれのコネクションから生成される`ChatManager`に対して`IncomingChatMessageListener`を設定する。
-                AbstractXMPPConnection connection = XMPPAuction.connection(
+                XMPPAuctionHouse auctionHouse = XMPPAuctionHouse.connect(
                         config.hostName, config.port, config.xmppDomainName,
                         config.userName, config.password, itemId);
-                disconnectWhenUICloses(connection);
-                Auction auction = new XMPPAuction(connection, itemId);
+                disconnectWhenUICloses(auctionHouse);
+                Auction auction = auctionHouse.auctionFor(itemId);
                 auction.addAuctionEventListener(new AuctionSniper(itemId,
                         auction, new SwingThreadSniperListener(snipers)));
                 auction.join();
@@ -87,11 +85,11 @@ public class Main {
         });
     }
 
-    private void disconnectWhenUICloses(AbstractXMPPConnection connection) {
+    private void disconnectWhenUICloses(XMPPAuctionHouse auctionHouse) {
         ui.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
-                connection.disconnect();
+                auctionHouse.disconnect();
             }
         });
     }
